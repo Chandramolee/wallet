@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Use Gemini Flash to parse transactions
         const { object } = await generateObject({
-            model: google('gemini-1.5-flash'),
+            model: google('gemini-2.5-flash'),
             schema: TransactionSchema,
             prompt: `Extract financial transactions from this bank statement.
 Also try to identify the bank name and last 4 digits of account number if visible.
@@ -98,7 +98,7 @@ ${rawText.substring(0, 30000)}`,
         for (const tx of object.transactions) {
             // AI categorization
             const { object: categoryObj } = await generateObject({
-                model: google('gemini-1.5-flash'),
+                model: google('gemini-2.5-flash'),
                 schema: CategorySchema,
                 prompt: `Categorize this transaction:
 Narration: ${tx.narration}

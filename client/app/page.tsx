@@ -104,9 +104,9 @@ export default function LandingPage() {
               className="mt-10 flex flex-col sm:flex-row items-center gap-4"
             >
               <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90" asChild>
-                <Link href="/link">
+                <Link href="/import">
                   <Smartphone className="mr-2 h-5 w-5" />
-                  Connect your Bank
+                  Change your future, maybe
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="h-12 px-8 text-base border-border" asChild>
@@ -276,7 +276,7 @@ export default function LandingPage() {
               Join thousands of users who have already connected their bank accounts.
             </p>
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-white/90 h-12 px-8" asChild>
-              <Link href="/link">
+              <Link href="/import">
                 Get Started — It&apos;s Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
         // AI categorization
         const { object: categoryObj } = await generateObject({
-            model: google('gemini-1.5-flash'),
+            model: google('gemini-2.5-flash'),
             schema: CategorySchema,
             prompt: `Categorize this transaction:
 Narration: ${narration}
