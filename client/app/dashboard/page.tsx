@@ -6,7 +6,6 @@ import { NetWorthCard, BalanceTrendChart, SpendingDonut } from '@/components/das
 import { TransactionList } from '@/components/transactions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { generateMockTransactions, generateMockAccount } from '@/lib/aa/mock-aggregator';
 import {
     ArrowRight,
     Wallet,
@@ -18,6 +17,7 @@ import {
     Sparkles
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { UserButton, useUser } from '@clerk/nextjs';
 
 const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', active: true },
@@ -27,8 +27,7 @@ const NAV_ITEMS = [
 ];
 
 export default function DashboardPage() {
-    const mockAccount = useMemo(() => generateMockAccount(), []);
-    const mockTransactions = useMemo(() => generateMockTransactions(3), []);
+    const { user, isLoaded } = useUser();
 
     // Calculate metrics
     const thisMonthTransactions = mockTransactions.filter((tx) => {
@@ -147,8 +146,7 @@ export default function DashboardPage() {
 
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="h-2 w-2 rounded-full bg-green-500" />
-                            <span className="text-green-600 font-medium">Connected</span>
+                            <UserButton />
                         </div>
                     </div>
                 </div>
@@ -164,7 +162,9 @@ export default function DashboardPage() {
                 >
                     {/* Greeting */}
                     <div>
-                        <h1 className="text-2xl font-semibold text-foreground">Good afternoon</h1>
+                        <h1 className="text-2xl font-semibold text-foreground">
+                            {isLoaded && user ? `Welcome back, ${user.firstName}` : 'Good afternoon'}
+                        </h1>
                         <p className="text-muted-foreground">Here&apos;s an overview of your finances</p>
                     </div>
 
@@ -223,10 +223,10 @@ export default function DashboardPage() {
                                         <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
                                             <Lightbulb className="h-4 w-4 text-blue-600" />
                                         </div>
-                                        <span className="font-medium text-sm">Connect Bank for Insights</span>
+                                        <span className="font-medium text-sm">Review this Month</span>
                                     </div>
                                     <p className="text-sm text-muted-foreground">
-                                        Connect your bank account to generate AI insights based on your transactions...
+                                        Get a personalized Month in Review to see where your money went.
                                     </p>
                                 </div>
                                 <Link href="/insights">

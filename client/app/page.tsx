@@ -15,6 +15,7 @@ import {
   BarChart3,
   Wallet
 } from 'lucide-react';
+import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 
 export default function LandingPage() {
   return (
@@ -39,11 +40,18 @@ export default function LandingPage() {
                 Dashboard
               </Button>
             </Link>
-            <Link href="/link">
-              <Button className="bg-primary text-white hover:bg-primary/90">
-                Connect Bank
-              </Button>
-            </Link>
+
+            <SignedOut>
+              <SignInButton mode="modal">
+                <Button className="bg-primary text-white hover:bg-primary/90">
+                  Sign In
+                </Button>
+              </SignInButton>
+            </SignedOut>
+
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
           </div>
         </div>
       </nav>
