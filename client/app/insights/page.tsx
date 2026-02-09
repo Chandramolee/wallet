@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { generateMockTransactions } from '@/lib/aa/mock-aggregator';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Wallet,
     LayoutDashboard,
@@ -16,12 +16,12 @@ import {
     TrendingUp,
     TrendingDown,
     AlertCircle,
-    CheckCircle2,
     Target,
     Calendar,
     DollarSign,
     Percent,
-    ArrowRight
+    ArrowRight,
+    Upload
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -32,21 +32,96 @@ const NAV_ITEMS = [
     { icon: Settings, label: 'Settings', href: '/settings', active: false },
 ];
 
+interface Transaction {
+    id: string;
+    amount: number;
+    type: 'CREDIT' | 'DEBIT';
+    narration: string;
+    transactionDate: string;
+    category?: string;
+    merchant?: string;
+}
+
+interface Insight {
+    icon: 'trending_up' | 'trending_down' | 'alert' | 'percent';
+    iconBg: string;
+    iconColor: string;
+    title: string;
+    description: string;
+    badge: string;
+    badgeColor: string;
+    confidence: number;
+}
+
 export default function InsightsPage() {
-    const mockTransactions = useMemo(() => generateMockTransactions(3), []);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [insights, setInsights] = useState<Insight[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/transactions?limit=100');
+                const data = await res.json();
+                setTransactions(data.transactions || []);
+            } catch (error) {
+                console.error('Failed to fetch transactions:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    // Fetch AI insights when transactions are loaded
+    useEffect(() => {
+        async function fetchInsights() {
+            if (transactions.length === 0) return;
+
+            setIsLoadingInsights(true);
+            try {
+                const res = await fetch('/api/ai/insights', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transactions }),
+                });
+                const data = await res.json();
+                if (data.insights) {
+                    setInsights(data.insights);
+                }
+            } catch (error) {
+                console.error('Failed to fetch insights:', error);
+            } finally {
+                setIsLoadingInsights(false);
+            }
+        }
+        fetchInsights();
+    }, [transactions]);
 
     // Calculate metrics
-    const thisMonthDebits = mockTransactions
-        .filter(tx => {
+    const stats = useMemo(() => {
+        const now = new Date();
+        const thisMonthTx = transactions.filter(tx => {
             const txDate = new Date(tx.transactionDate);
-            const now = new Date();
-            return tx.type === 'DEBIT' && txDate.getMonth() === now.getMonth();
-        })
-        .reduce((sum, tx) => sum + tx.amount, 0);
+            return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+        });
 
-    const avgDailySpend = thisMonthDebits / 30;
-    const savingsRate = 18.5;
-    const budgetScore = 85;
+        const debits = thisMonthTx.filter(tx => tx.type === 'DEBIT');
+        const totalDebits = debits.reduce((sum, tx) => sum + tx.amount, 0);
+        const credits = thisMonthTx.filter(tx => tx.type === 'CREDIT').reduce((sum, tx) => sum + tx.amount, 0);
+
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const avgDailySpend = totalDebits / daysInMonth;
+        const savingsRate = credits > 0 ? ((credits - totalDebits) / credits * 100) : 0;
+
+        return {
+            avgDailySpend,
+            savingsRate: Math.max(0, savingsRate),
+            budgetScore: Math.min(100, Math.max(0, 100 - (totalDebits / (credits || 1) * 50))),
+            totalExpenses: totalDebits,
+        };
+    }, [transactions]);
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -56,54 +131,82 @@ export default function InsightsPage() {
         }).format(value);
     };
 
-    const recommendations = [
+    const getInsightIcon = (iconType: string) => {
+        switch (iconType) {
+            case 'trending_up': return TrendingUp;
+            case 'trending_down': return TrendingDown;
+            case 'alert': return AlertCircle;
+            case 'percent': return Percent;
+            default: return TrendingUp;
+        }
+    };
+
+    // Empty state
+    if (!isLoading && transactions.length === 0) {
+        return (
+            <div className="min-h-screen bg-background">
+                <header className="sticky top-0 z-50 border-b border-border bg-white">
+                    <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+                        <div className="flex items-center gap-8">
+                            <Link href="/" className="flex items-center gap-2">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
+                                    <Wallet className="h-5 w-5 text-white" />
+                                </div>
+                                <span className="text-xl font-semibold text-foreground">Fold</span>
+                            </Link>
+                            <nav className="hidden md:flex items-center gap-1">
+                                {NAV_ITEMS.map((item) => (
+                                    <Link key={item.href} href={item.href}>
+                                        <Button
+                                            variant={item.active ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                        >
+                                            <item.icon className="h-4 w-4" />
+                                            {item.label}
+                                        </Button>
+                                    </Link>
+                                ))}
+                            </nav>
+                        </div>
+                    </div>
+                </header>
+                <main className="mx-auto max-w-7xl px-6 py-16">
+                    <div className="text-center">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 mb-6">
+                            <Sparkles className="h-10 w-10 text-blue-600" />
+                        </div>
+                        <h1 className="text-2xl font-semibold text-foreground mb-2">No insights yet</h1>
+                        <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                            Import your bank statement to get AI-powered insights about your spending.
+                        </p>
+                        <Link href="/import">
+                            <Button size="lg" className="gap-2">
+                                <Upload className="h-5 w-5" />
+                                Import Bank Statement
+                            </Button>
+                        </Link>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Default insights when AI hasn't loaded yet
+    const defaultInsights: Insight[] = [
         {
-            icon: TrendingUp,
+            icon: 'trending_up',
             iconBg: 'bg-blue-50',
             iconColor: 'text-blue-600',
-            title: 'Switch to Annual Subscriptions',
-            description: 'You could save ₹12,500/year by switching Netflix and Spotify to annual plans.',
-            badge: '₹12,500 savings',
-            badgeColor: 'bg-green-50 text-green-700',
-            confidence: 92
-        },
-        {
-            icon: AlertCircle,
-            iconBg: 'bg-orange-50',
-            iconColor: 'text-orange-600',
-            title: 'Weekend Spending Spike',
-            description: 'Your weekend spending is 3x higher than weekdays. Consider setting a weekend budget.',
-            badge: '40% higher',
-            badgeColor: 'bg-orange-50 text-orange-700',
-            confidence: 88
-        },
-        {
-            icon: TrendingDown,
-            iconBg: 'bg-red-50',
-            iconColor: 'text-red-600',
-            title: 'Subscription Creep Detected',
-            description: 'You\'ve added 3 new subscriptions this quarter totaling ₹3,600/month.',
-            badge: '₹43,200/year',
-            badgeColor: 'bg-red-50 text-red-700',
-            confidence: 95
-        },
-        {
-            icon: Percent,
-            iconBg: 'bg-green-50',
-            iconColor: 'text-green-600',
-            title: 'Optimal Savings Rate',
-            description: 'Based on your income, aim for 20% savings rate. You\'re currently at 15%.',
-            badge: '5% increase',
-            badgeColor: 'bg-blue-50 text-blue-700',
-            confidence: 87
-        },
+            title: 'Analyzing your spending patterns...',
+            description: 'AI is reviewing your transactions to find savings opportunities.',
+            badge: 'Loading',
+            badgeColor: 'bg-slate-50 text-slate-700',
+            confidence: 0
+        }
     ];
 
-    const savingsGoals = [
-        { name: 'Emergency Fund', current: 68000, target: 100000, due: 'Mar 2025' },
-        { name: 'Vacation', current: 24000, target: 50000, due: 'Jun 2025' },
-        { name: 'New Car', current: 85000, target: 250000, due: 'Dec 2025' },
-    ];
+    const displayInsights = insights.length > 0 ? insights : (isLoadingInsights ? defaultInsights : []);
 
     return (
         <div className="min-h-screen bg-background">
@@ -133,11 +236,6 @@ export default function InsightsPage() {
                             ))}
                         </nav>
                     </div>
-
-                    <div className="flex items-center gap-2 text-sm">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                        <span className="text-green-600 font-medium">Connected</span>
-                    </div>
                 </div>
             </header>
 
@@ -161,135 +259,132 @@ export default function InsightsPage() {
 
                     {/* Stats Cards */}
                     <div className="grid gap-4 md:grid-cols-4">
-                        {[
-                            { icon: DollarSign, label: 'Avg Daily Spend', value: formatCurrency(avgDailySpend), change: '12% less than avg', positive: true },
-                            { icon: Percent, label: 'Savings Rate', value: `${savingsRate}%`, change: '3.5% above target', positive: true },
-                            { icon: Target, label: 'Budget Score', value: `${budgetScore}/100`, change: 'Great progress!', positive: true },
-                            { icon: Calendar, label: 'Next Milestone', value: '23 days', change: 'Until emergency fund goal', positive: null },
-                        ].map((stat, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.05 }}
-                            >
-                                <Card className="border-border">
+                        {isLoading ? (
+                            Array(4).fill(0).map((_, i) => (
+                                <Card key={i} className="border-border">
                                     <CardContent className="p-5">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-sm text-muted-foreground">{stat.label}</p>
-                                            <stat.icon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <p className="text-2xl font-semibold tabular-nums text-foreground">{stat.value}</p>
-                                        <p className={`mt-1 text-sm ${stat.positive === true ? 'text-green-600' : stat.positive === false ? 'text-red-500' : 'text-muted-foreground'}`}>
-                                            {stat.positive === true && '↗ '}{stat.change}
-                                        </p>
+                                        <Skeleton className="h-4 w-24 mb-2" />
+                                        <Skeleton className="h-8 w-32" />
                                     </CardContent>
                                 </Card>
-                            </motion.div>
-                        ))}
-                    </div>
-
-                    {/* Main Grid */}
-                    <div className="grid gap-6 lg:grid-cols-3">
-                        {/* Smart Recommendations */}
-                        <div className="lg:col-span-2 space-y-4">
-                            <h2 className="text-lg font-semibold text-foreground">Smart Recommendations</h2>
-
-                            {recommendations.map((rec, i) => (
+                            ))
+                        ) : (
+                            [
+                                { icon: DollarSign, label: 'Avg Daily Spend', value: formatCurrency(stats.avgDailySpend), subtext: 'This month' },
+                                { icon: Percent, label: 'Savings Rate', value: `${stats.savingsRate.toFixed(1)}%`, subtext: 'Of income saved' },
+                                { icon: Target, label: 'Budget Score', value: `${Math.round(stats.budgetScore)}/100`, subtext: 'Based on spending' },
+                                { icon: Calendar, label: 'Total Expenses', value: formatCurrency(stats.totalExpenses), subtext: 'This month' },
+                            ].map((stat, i) => (
                                 <motion.div
                                     key={i}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 + i * 0.05 }}
+                                    transition={{ delay: i * 0.05 }}
                                 >
-                                    <Card className="border-border hover:shadow-md transition-shadow">
+                                    <Card className="border-border">
+                                        <CardContent className="p-5">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                                                <stat.icon className="h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                            <p className="text-2xl font-semibold tabular-nums text-foreground">{stat.value}</p>
+                                            <p className="mt-1 text-sm text-muted-foreground">{stat.subtext}</p>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Smart Recommendations */}
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-foreground">Smart Recommendations</h2>
+
+                        {isLoadingInsights ? (
+                            <div className="space-y-4">
+                                {Array(3).fill(0).map((_, i) => (
+                                    <Card key={i} className="border-border">
                                         <CardContent className="p-5">
                                             <div className="flex items-start gap-4">
-                                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${rec.iconBg} shrink-0`}>
-                                                    <rec.icon className={`h-5 w-5 ${rec.iconColor}`} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between gap-4">
-                                                        <h3 className="font-medium text-foreground">{rec.title}</h3>
-                                                        <Badge className={`${rec.badgeColor} border-0 shrink-0`}>
-                                                            {rec.badge}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="mt-1 text-sm text-muted-foreground">{rec.description}</p>
-                                                    <div className="mt-3 flex items-center gap-2">
-                                                        <span className="text-xs text-muted-foreground">AI Confidence:</span>
-                                                        <div className="h-1.5 w-20 bg-slate-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-blue-500 rounded-full"
-                                                                style={{ width: `${rec.confidence}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-xs font-medium text-foreground">{rec.confidence}%</span>
-                                                    </div>
+                                                <Skeleton className="h-10 w-10 rounded-xl" />
+                                                <div className="flex-1">
+                                                    <Skeleton className="h-5 w-48 mb-2" />
+                                                    <Skeleton className="h-4 w-full" />
                                                 </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
-                            ))}
-                        </div>
-
-                        {/* Sidebar */}
-                        <div className="space-y-6">
-                            {/* Savings Goals */}
+                                ))}
+                            </div>
+                        ) : displayInsights.length === 0 ? (
                             <Card className="border-border">
-                                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                                    <CardTitle className="text-base font-medium">Savings Goals</CardTitle>
-                                    <Button variant="ghost" size="sm" className="text-blue-600 text-xs">
-                                        Add Goal
-                                    </Button>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {savingsGoals.map((goal, i) => {
-                                        const progress = (goal.current / goal.target) * 100;
-                                        return (
-                                            <div key={i} className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="font-medium text-sm text-foreground">{goal.name}</p>
-                                                        <p className="text-xs text-muted-foreground">Due: {goal.due}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm font-medium tabular-nums">
-                                                            {formatCurrency(goal.current)} / {formatCurrency(goal.target)}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">{progress.toFixed(0)}%</p>
-                                                    </div>
-                                                </div>
-                                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-blue-500 rounded-full transition-all"
-                                                        style={{ width: `${Math.min(progress, 100)}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </CardContent>
-                            </Card>
-
-                            {/* Tip of the Day */}
-                            <Card className="border-border bg-amber-50 border-amber-200">
-                                <CardContent className="p-5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Lightbulb className="h-5 w-5 text-amber-600" />
-                                        <span className="font-medium text-amber-900">Tip of the Day</span>
-                                    </div>
-                                    <p className="text-sm text-amber-800">
-                                        Consider automating your savings. Setting up automatic transfers on payday can increase your savings rate by up to 25%.
+                                <CardContent className="p-8 text-center">
+                                    <p className="text-muted-foreground">
+                                        Add more transactions to get personalized recommendations.
                                     </p>
-                                    <Button variant="ghost" size="sm" className="mt-3 text-amber-700 hover:text-amber-800 p-0">
-                                        Learn more <ArrowRight className="ml-1 h-3 w-3" />
-                                    </Button>
                                 </CardContent>
                             </Card>
-                        </div>
+                        ) : (
+                            displayInsights.map((rec, i) => {
+                                const IconComponent = getInsightIcon(rec.icon);
+                                return (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 + i * 0.05 }}
+                                    >
+                                        <Card className="border-border hover:shadow-md transition-shadow">
+                                            <CardContent className="p-5">
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${rec.iconBg} shrink-0`}>
+                                                        <IconComponent className={`h-5 w-5 ${rec.iconColor}`} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <h3 className="font-medium text-foreground">{rec.title}</h3>
+                                                            <Badge className={`${rec.badgeColor} border-0 shrink-0`}>
+                                                                {rec.badge}
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="mt-1 text-sm text-muted-foreground">{rec.description}</p>
+                                                        {rec.confidence > 0 && (
+                                                            <div className="mt-3 flex items-center gap-2">
+                                                                <span className="text-xs text-muted-foreground">AI Confidence:</span>
+                                                                <div className="h-1.5 w-20 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-blue-500 rounded-full"
+                                                                        style={{ width: `${rec.confidence}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-xs font-medium text-foreground">{rec.confidence}%</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                );
+                            })
+                        )}
                     </div>
+
+                    {/* Tip of the Day */}
+                    <Card className="border-border bg-amber-50 border-amber-200">
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Lightbulb className="h-5 w-5 text-amber-600" />
+                                <span className="font-medium text-amber-900">Tip of the Day</span>
+                            </div>
+                            <p className="text-sm text-amber-800">
+                                Consider automating your savings. Setting up automatic transfers on payday can increase your savings rate by up to 25%.
+                            </p>
+                            <Button variant="ghost" size="sm" className="mt-3 text-amber-700 hover:text-amber-800 p-0">
+                                Learn more <ArrowRight className="ml-1 h-3 w-3" />
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </motion.div>
             </main>
         </div>

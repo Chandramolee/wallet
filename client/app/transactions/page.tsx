@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { generateMockTransactions } from '@/lib/aa/mock-aggregator';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Wallet,
     LayoutDashboard,
@@ -14,7 +14,6 @@ import {
     Lightbulb,
     Settings,
     Search,
-    Filter,
     Download,
     UtensilsCrossed,
     ShoppingBag,
@@ -23,7 +22,8 @@ import {
     CreditCard,
     ArrowUpDown,
     TrendingUp,
-    CircleDollarSign
+    CircleDollarSign,
+    Upload
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -48,24 +48,49 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; 
     OTHER: { icon: CircleDollarSign, color: 'text-slate-600', bgColor: 'bg-slate-50', label: 'Other' },
 };
 
+interface Transaction {
+    id: string;
+    amount: number;
+    type: 'CREDIT' | 'DEBIT';
+    narration: string;
+    transactionDate: string;
+    category?: string;
+    merchant?: string;
+}
+
 export default function TransactionsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const mockTransactions = useMemo(() => generateMockTransactions(3), []);
+    useEffect(() => {
+        async function fetchTransactions() {
+            try {
+                const res = await fetch('/api/transactions?limit=100');
+                const data = await res.json();
+                setTransactions(data.transactions || []);
+            } catch (error) {
+                console.error('Failed to fetch transactions:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchTransactions();
+    }, []);
 
     const filteredTransactions = useMemo(() => {
-        return mockTransactions.filter(tx => {
+        return transactions.filter(tx => {
             const matchesSearch = searchQuery === '' ||
                 tx.merchant?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 tx.narration.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = !selectedCategory || tx.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
-    }, [mockTransactions, searchQuery, selectedCategory]);
+    }, [transactions, searchQuery, selectedCategory]);
 
     const groupedTransactions = useMemo(() => {
-        const groups: Record<string, typeof filteredTransactions> = {};
+        const groups: Record<string, Transaction[]> = {};
         filteredTransactions.forEach(tx => {
             const dateKey = format(new Date(tx.transactionDate), 'yyyy-MM-dd');
             if (!groups[dateKey]) groups[dateKey] = [];
@@ -90,6 +115,57 @@ export default function TransactionsPage() {
     };
 
     const categories = Object.entries(CATEGORY_CONFIG);
+
+    // Empty state
+    if (!isLoading && transactions.length === 0) {
+        return (
+            <div className="min-h-screen bg-background">
+                <header className="sticky top-0 z-50 border-b border-border bg-white">
+                    <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+                        <div className="flex items-center gap-8">
+                            <Link href="/" className="flex items-center gap-2">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
+                                    <Wallet className="h-5 w-5 text-white" />
+                                </div>
+                                <span className="text-xl font-semibold text-foreground">Fold</span>
+                            </Link>
+                            <nav className="hidden md:flex items-center gap-1">
+                                {NAV_ITEMS.map((item) => (
+                                    <Link key={item.href} href={item.href}>
+                                        <Button
+                                            variant={item.active ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                        >
+                                            <item.icon className="h-4 w-4" />
+                                            {item.label}
+                                        </Button>
+                                    </Link>
+                                ))}
+                            </nav>
+                        </div>
+                    </div>
+                </header>
+                <main className="mx-auto max-w-7xl px-6 py-16">
+                    <div className="text-center">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 mb-6">
+                            <Receipt className="h-10 w-10 text-blue-600" />
+                        </div>
+                        <h1 className="text-2xl font-semibold text-foreground mb-2">No transactions yet</h1>
+                        <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                            Import your bank statement to see your transactions here.
+                        </p>
+                        <Link href="/import">
+                            <Button size="lg" className="gap-2">
+                                <Upload className="h-5 w-5" />
+                                Import Bank Statement
+                            </Button>
+                        </Link>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background">
@@ -118,11 +194,6 @@ export default function TransactionsPage() {
                                 </Link>
                             ))}
                         </nav>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                        <span className="text-green-600 font-medium">Connected</span>
                     </div>
                 </div>
             </header>
@@ -183,12 +254,18 @@ export default function TransactionsPage() {
                     {/* Transactions List */}
                     <Card className="border-border">
                         <CardContent className="p-0">
-                            {groupedTransactions.length === 0 ? (
+                            {isLoading ? (
+                                <div className="p-6 space-y-4">
+                                    {Array(5).fill(0).map((_, i) => (
+                                        <Skeleton key={i} className="h-16 w-full" />
+                                    ))}
+                                </div>
+                            ) : groupedTransactions.length === 0 ? (
                                 <div className="p-8 text-center text-muted-foreground">
                                     No transactions found
                                 </div>
                             ) : (
-                                groupedTransactions.map(([date, transactions]) => (
+                                groupedTransactions.map(([date, txs]) => (
                                     <div key={date}>
                                         <div className="px-6 py-3 bg-slate-50 border-b border-border">
                                             <h3 className="text-sm font-medium text-muted-foreground">
@@ -196,14 +273,14 @@ export default function TransactionsPage() {
                                             </h3>
                                         </div>
                                         <div className="divide-y divide-border">
-                                            {transactions.map((tx, i) => {
+                                            {txs.map((tx, i) => {
                                                 const config = CATEGORY_CONFIG[tx.category || 'OTHER'] || CATEGORY_CONFIG.OTHER;
                                                 const Icon = config.icon;
                                                 const isCredit = tx.type === 'CREDIT';
 
                                                 return (
                                                     <motion.div
-                                                        key={i}
+                                                        key={tx.id}
                                                         initial={{ opacity: 0 }}
                                                         animate={{ opacity: 1 }}
                                                         transition={{ delay: i * 0.02 }}

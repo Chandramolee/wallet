@@ -32,22 +32,33 @@ export default function ImportPage() {
         e.preventDefault();
         setIsSubmitting(true);
 
-        // Simulate API call for now (Will connect to DB + Auto-tagging later)
-        setTimeout(() => {
-            setTransactions(prev => [{
-                date,
-                amount: parseFloat(amount),
-                narration,
-                type,
-                category: 'PENDING'
-            }, ...prev]);
+        try {
+            const res = await fetch('/api/transactions/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date,
+                    amount: parseFloat(amount),
+                    narration,
+                    type,
+                }),
+            });
 
+            if (!res.ok) throw new Error('Failed to create transaction');
+
+            const data = await res.json();
+
+            setTransactions(prev => [data.transaction, ...prev]);
             setAmount('');
             setNarration('');
-            setIsSubmitting(false);
             setSuccess(true);
             setTimeout(() => setSuccess(false), 2000);
-        }, 1000);
+        } catch (error) {
+            console.error('Manual entry error:', error);
+            // Optional: show error toast here
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
