@@ -1,31 +1,82 @@
-/**
- * Gemini 1.5 Pro API Wrapper
- * Used for heavy-lifting tasks: Year in Review, Month in Review, deep insights
- * Leverages 1M token context for comprehensive analysis
- */
 
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { google } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-let genAI: GoogleGenerativeAI | null = null;
-let model: GenerativeModel | null = null;
-
-function getModel(): GenerativeModel {
-    if (!GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY is not configured');
-    }
-
-    if (!genAI) {
-        genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    }
-
-    if (!model) {
-        model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-    }
-
-    return model;
+if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not configured');
 }
+
+// Schemas for structured output
+const MonthInReviewSchema = z.object({
+    summary: z.string().describe('2-3 sentence summary of the month'),
+    totalIncome: z.number(),
+    totalExpenses: z.number(),
+    savingsRate: z.number().describe('Savings rate as a percentage'),
+    topCategories: z.array(z.object({
+        category: z.string(),
+        amount: z.number(),
+        percentage: z.number(),
+    })),
+    subscriptionCreep: z.array(z.object({
+        name: z.string(),
+        amount: z.number(),
+        isNew: z.boolean(),
+    })),
+    weekendVsWeekday: z.object({
+        weekendSpending: z.number(),
+        weekdaySpending: z.number(),
+        insight: z.string(),
+    }),
+    unusualTransactions: z.array(z.object({
+        narration: z.string(),
+        amount: z.number(),
+        reason: z.string(),
+    })),
+    recommendations: z.array(z.string()),
+});
+
+const YearInReviewSchema = z.object({
+    summary: z.string().describe('Executive summary of the year (3-4 sentences)'),
+    totalIncome: z.number(),
+    totalExpenses: z.number(),
+    netSavings: z.number(),
+    savingsRate: z.number().describe('Savings rate as a percentage'),
+    monthlyTrends: z.array(z.object({
+        month: z.string(),
+        income: z.number(),
+        expenses: z.number(),
+    })),
+    topMerchants: z.array(z.object({
+        merchant: z.string(),
+        totalSpent: z.number(),
+        visits: z.number(),
+    })),
+    categoryBreakdown: z.array(z.object({
+        category: z.string(),
+        amount: z.number(),
+        percentage: z.number(),
+    })),
+    subscriptionAudit: z.array(z.object({
+        name: z.string(),
+        monthlyAmount: z.number(),
+        yearlyTotal: z.number(),
+        recommendation: z.string(),
+    })),
+    spendingPatterns: z.array(z.string()),
+    goals: z.array(z.string()),
+});
+
+const SpendingPredictionSchema = z.object({
+    predictions: z.array(z.object({
+        month: z.string(),
+        predictedSpending: z.number(),
+        confidence: z.number().min(0).max(1),
+    })),
+    reasoning: z.string().describe('Brief explanation of patterns used for prediction'),
+});
 
 interface Transaction {
     amount: number;
@@ -36,87 +87,10 @@ interface Transaction {
     narration: string;
 }
 
-interface MonthInReviewResult {
-    summary: string;
-    totalIncome: number;
-    totalExpenses: number;
-    savingsRate: number;
-    topCategories: { category: string; amount: number; percentage: number }[];
-    subscriptionCreep: { name: string; amount: number; isNew: boolean }[];
-    weekendVsWeekday: { weekendSpending: number; weekdaySpending: number; insight: string };
-    unusualTransactions: { narration: string; amount: number; reason: string }[];
-    recommendations: string[];
-}
-
-interface YearInReviewResult {
-    summary: string;
-    totalIncome: number;
-    totalExpenses: number;
-    netSavings: number;
-    savingsRate: number;
-    monthlyTrends: { month: string; income: number; expenses: number }[];
-    topMerchants: { merchant: string; totalSpent: number; visits: number }[];
-    categoryBreakdown: { category: string; amount: number; percentage: number }[];
-    subscriptionAudit: { name: string; monthlyAmount: number; yearlyTotal: number; recommendation: string }[];
-    spendingPatterns: string[];
-    goals: string[];
-}
-
-const MONTH_IN_REVIEW_PROMPT = `You are a personal finance analyst. Analyze the following month's transactions and provide insights.
-
-Return a JSON object with this exact structure:
-{
-  "summary": "2-3 sentence summary of the month",
-  "totalIncome": number,
-  "totalExpenses": number,
-  "savingsRate": number (percentage),
-  "topCategories": [{"category": string, "amount": number, "percentage": number}],
-  "subscriptionCreep": [{"name": string, "amount": number, "isNew": boolean}],
-  "weekendVsWeekday": {"weekendSpending": number, "weekdaySpending": number, "insight": string},
-  "unusualTransactions": [{"narration": string, "amount": number, "reason": string}],
-  "recommendations": [strings]
-}
-
-Focus on:
-1. Identifying subscription creep (recurring payments that may be unnecessary)
-2. Weekend vs weekday spending patterns
-3. Unusual or large transactions
-4. Actionable recommendations
-
-Return ONLY valid JSON. No markdown code blocks.`;
-
-const YEAR_IN_REVIEW_PROMPT = `You are a personal finance analyst creating a comprehensive Year in Review. Analyze all transactions and provide deep insights.
-
-Return a JSON object with this exact structure:
-{
-  "summary": "Executive summary of the year (3-4 sentences)",
-  "totalIncome": number,
-  "totalExpenses": number,
-  "netSavings": number,
-  "savingsRate": number (percentage),
-  "monthlyTrends": [{"month": "Jan 2025", "income": number, "expenses": number}],
-  "topMerchants": [{"merchant": string, "totalSpent": number, "visits": number}],
-  "categoryBreakdown": [{"category": string, "amount": number, "percentage": number}],
-  "subscriptionAudit": [{"name": string, "monthlyAmount": number, "yearlyTotal": number, "recommendation": string}],
-  "spendingPatterns": [strings describing patterns],
-  "goals": [suggested financial goals for next year]
-}
-
-Focus on:
-1. Long-term trends and patterns
-2. Subscription audit with recommendations
-3. Seasonal spending patterns
-4. Merchant loyalty insights
-5. Actionable goals for improvement
-
-Return ONLY valid JSON. No markdown code blocks.`;
-
 /**
  * Generate Month in Review insights
  */
-export async function generateMonthInReview(transactions: Transaction[]): Promise<MonthInReviewResult> {
-    const model = getModel();
-
+export async function generateMonthInReview(transactions: Transaction[]) {
     const formattedTransactions = transactions.map(tx => ({
         amount: tx.amount,
         type: tx.type,
@@ -126,29 +100,28 @@ export async function generateMonthInReview(transactions: Transaction[]): Promis
         narration: tx.narration,
     }));
 
-    const result = await model.generateContent([
-        MONTH_IN_REVIEW_PROMPT,
-        `\n\nTransactions:\n${JSON.stringify(formattedTransactions, null, 2)}`,
-    ]);
+    const { object } = await generateObject({
+        model: google('gemini-2.5-pro'),
+        schema: MonthInReviewSchema,
+        prompt: `You are a personal finance analyst. Analyze the following month's transactions and provide insights.
 
-    const text = result.response.text();
+Focus on:
+1. Identifying subscription creep (recurring payments that may be unnecessary)
+2. Weekend vs weekday spending patterns
+3. Unusual or large transactions
+4. Actionable recommendations
 
-    try {
-        // Clean up potential markdown code blocks
-        const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        return JSON.parse(cleaned) as MonthInReviewResult;
-    } catch (e) {
-        console.error('Failed to parse Gemini response:', text);
-        throw new Error('Invalid JSON response from Gemini');
-    }
+Transactions:
+${JSON.stringify(formattedTransactions, null, 2)}`,
+    });
+
+    return object;
 }
 
 /**
- * Generate Year in Review insights (uses full 1M context)
+ * Generate Year in Review insights
  */
-export async function generateYearInReview(transactions: Transaction[]): Promise<YearInReviewResult> {
-    const model = getModel();
-
+export async function generateYearInReview(transactions: Transaction[]) {
     // Sort by date
     const sortedTransactions = [...transactions].sort((a, b) => {
         const dateA = new Date(a.transactionDate);
@@ -165,20 +138,23 @@ export async function generateYearInReview(transactions: Transaction[]): Promise
         narration: tx.narration,
     }));
 
-    const result = await model.generateContent([
-        YEAR_IN_REVIEW_PROMPT,
-        `\n\nAll Transactions (${formattedTransactions.length} total):\n${JSON.stringify(formattedTransactions, null, 2)}`,
-    ]);
+    const { object } = await generateObject({
+        model: google('gemini-2.5-pro'),
+        schema: YearInReviewSchema,
+        prompt: `You are a personal finance analyst creating a comprehensive Year in Review. Analyze all transactions and provide deep insights.
 
-    const text = result.response.text();
+Focus on:
+1. Long-term trends and patterns
+2. Subscription audit with recommendations
+3. Seasonal spending patterns
+4. Merchant loyalty insights
+5. Actionable goals for improvement
 
-    try {
-        const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        return JSON.parse(cleaned) as YearInReviewResult;
-    } catch (e) {
-        console.error('Failed to parse Gemini response:', text);
-        throw new Error('Invalid JSON response from Gemini');
-    }
+All Transactions (${formattedTransactions.length} total):
+${JSON.stringify(formattedTransactions, null, 2)}`,
+    });
+
+    return object;
 }
 
 /**
@@ -187,32 +163,17 @@ export async function generateYearInReview(transactions: Transaction[]): Promise
 export async function generateSpendingPrediction(
     historicalData: { month: string; spending: number }[],
     monthsToPredict: number = 3
-): Promise<{ predictions: { month: string; predictedSpending: number; confidence: number }[]; reasoning: string }> {
-    const model = getModel();
-
-    const prompt = `You are a financial forecasting model. Given historical monthly spending data, predict future spending.
+) {
+    const { object } = await generateObject({
+        model: google('gemini-2.5-pro'),
+        schema: SpendingPredictionSchema,
+        prompt: `You are a financial forecasting model. Given historical monthly spending data, predict future spending.
 
 Historical data:
 ${JSON.stringify(historicalData, null, 2)}
 
-Predict the next ${monthsToPredict} months of spending.
+Predict the next ${monthsToPredict} months of spending. Consider seasonal patterns, trends, and anomalies.`,
+    });
 
-Return JSON:
-{
-  "predictions": [{"month": "Feb 2026", "predictedSpending": number, "confidence": 0.0-1.0}],
-  "reasoning": "Brief explanation of patterns used for prediction"
-}
-
-Consider seasonal patterns, trends, and anomalies. Return ONLY valid JSON.`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-
-    try {
-        const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        return JSON.parse(cleaned);
-    } catch (e) {
-        console.error('Failed to parse Gemini prediction:', text);
-        throw new Error('Invalid JSON response from Gemini');
-    }
+    return object;
 }

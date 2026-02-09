@@ -19,6 +19,9 @@ const TransactionSchema = z.object({
         narration: z.string().describe('Description or narration of the transaction'),
         amount: z.number().describe('Amount of the transaction as positive number'),
         type: z.enum(['CREDIT', 'DEBIT']).describe('Type of transaction'),
+        category: z.enum(['FOOD', 'SHOPPING', 'TRANSPORT', 'BILLS', 'ENTERTAINMENT', 'SUBSCRIPTIONS', 'TRANSFERS', 'INCOME', 'INVESTMENTS', 'OTHER']).describe('Category of the transaction'),
+        merchant: z.string().optional().describe('Merchant name if identifiable'),
+        sentiment: z.enum(['ESSENTIAL', 'DISCRETIONARY', 'SAVINGS']).optional().describe('Spending sentiment'),
     }))
 });
 
@@ -59,17 +62,28 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Use Gemini Flash to parse transactions
+        const startTime = Date.now();
+        console.log('Gemini extraction started...');
+
+        // 3. Use Gemini Flash to parse AND categorize transactions in one go
         const { object } = await generateObject({
-            model: google('gemini-2.5-flash'),
+            model: google('gemini-2.5-pro'),
             schema: TransactionSchema,
-            prompt: `Extract financial transactions from this bank statement.
+            prompt: `Extract and categorize financial transactions from this bank statement.
 Also try to identify the bank name and last 4 digits of account number if visible.
-Identify the date, description (narration), amount, and type (CREDIT/DEBIT).
-For amounts, always use positive numbers - use the type field to indicate debit/credit.
+For each transaction:
+1. Identify the date, description (narration), amount, and type (CREDIT/DEBIT).
+2. Categorize it into one of: FOOD, SHOPPING, TRANSPORT, BILLS, ENTERTAINMENT, SUBSCRIPTIONS, TRANSFERS, INCOME, INVESTMENTS, OTHER.
+3. Identify the merchant name if possible.
+4. Determine sentiment: ESSENTIAL (needs), DISCRETIONARY (wants), or SAVINGS.
+
+for amounts, always use positive numbers - use the type field to indicate debit/credit.
 
 BANK STATEMENT TEXT:
 ${rawText.substring(0, 30000)}`,
         });
+
+        console.log(`Gemini extraction completed in ${(Date.now() - startTime) / 1000}s`);
 
         console.log('Gemini Parsed Object:', JSON.stringify(object, null, 2));
 
@@ -96,17 +110,7 @@ ${rawText.substring(0, 30000)}`,
         // 6. Save transactions to DB and categorize
         const savedTransactions = [];
         for (const tx of object.transactions) {
-            // AI categorization
-            const { object: categoryObj } = await generateObject({
-                model: google('gemini-2.5-flash'),
-                schema: CategorySchema,
-                prompt: `Categorize this transaction:
-Narration: ${tx.narration}
-Amount: ₹${tx.amount}
-Type: ${tx.type}
-
-Return the most appropriate category, merchant name if identifiable, and whether it's essential/discretionary/savings.`,
-            });
+            // No separate AI call needed anymore!
 
             const savedTx = await Transaction.create({
                 accountId: account._id,
@@ -115,9 +119,9 @@ Return the most appropriate category, merchant name if identifiable, and whether
                 type: tx.type,
                 narration: tx.narration,
                 transactionDate: new Date(tx.date),
-                category: categoryObj.category,
-                merchant: categoryObj.merchant,
-                sentiment: categoryObj.sentiment,
+                category: tx.category || 'OTHER',
+                merchant: tx.merchant || 'Unknown',
+                sentiment: tx.sentiment || 'ESSENTIAL',
             });
 
             savedTransactions.push({
@@ -126,8 +130,8 @@ Return the most appropriate category, merchant name if identifiable, and whether
                 narration: tx.narration,
                 amount: tx.amount,
                 type: tx.type,
-                category: categoryObj.category,
-                merchant: categoryObj.merchant,
+                category: tx.category,
+                merchant: tx.merchant,
             });
         }
 
