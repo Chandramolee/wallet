@@ -120,7 +120,7 @@ export default function ImportPage() {
                                         <div className="space-y-2">
                                             <Label htmlFor="type">Type</Label>
                                             <Select value={type} onValueChange={setType}>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>

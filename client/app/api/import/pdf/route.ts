@@ -8,6 +8,8 @@ import connectDB from '@/lib/db/mongoose';
 import Transaction from '@/lib/db/models/Transaction';
 import UserAccount from '@/lib/db/models/UserAccount';
 
+export const dynamic = 'force-dynamic';
+
 // Schema for extracted transactions
 const TransactionSchema = z.object({
     bankName: z.string().optional().describe('Name of the bank if visible in the statement'),
@@ -29,6 +31,7 @@ const CategorySchema = z.object({
 
 export async function POST(req: NextRequest) {
     try {
+        console.log('Starting PDF import...');
         // 1. Authenticate user
         const { userId } = await auth();
         if (!userId) {
@@ -49,6 +52,12 @@ export async function POST(req: NextRequest) {
         const textResult = await parser.getText();
         const rawText = textResult.text;
 
+        console.log(`PDF Extracted Text Length: ${rawText.length}`);
+        if (rawText.length < 100) {
+            console.warn('PDF extraction warning: Text too short or empty');
+            console.log('Preview:', rawText);
+        }
+
         // 3. Use Gemini Flash to parse transactions
         const { object } = await generateObject({
             model: google('gemini-1.5-flash'),
@@ -61,6 +70,8 @@ For amounts, always use positive numbers - use the type field to indicate debit/
 BANK STATEMENT TEXT:
 ${rawText.substring(0, 30000)}`,
         });
+
+        console.log('Gemini Parsed Object:', JSON.stringify(object, null, 2));
 
         // 4. Connect to database
         await connectDB();

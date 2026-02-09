@@ -28,23 +28,8 @@ export function BalanceTrendChart({ data, days = 30 }: BalanceTrendChartProps) {
                 balance: item.balance,
             }));
         }
-
-        const mockData = [];
-        let balance = 150000 + Math.random() * 50000;
-
-        for (let i = days; i >= 0; i--) {
-            const date = subDays(new Date(), i);
-            const change = (Math.random() - 0.45) * 5000;
-            balance = Math.max(50000, balance + change);
-
-            mockData.push({
-                date: format(date, 'MMM d'),
-                balance: Math.round(balance),
-            });
-        }
-
-        return mockData;
-    }, [data, days]);
+        return [];
+    }, [data]);
 
     const formatCurrency = (value: number) => {
         if (value >= 100000) {

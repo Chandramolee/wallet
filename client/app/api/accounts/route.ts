@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import connectDB from '@/lib/db/mongoose';
 import UserAccount from '@/lib/db/models/UserAccount';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
     try {
         const { userId } = await auth();

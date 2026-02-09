@@ -16,18 +16,8 @@ interface SpendingDonutProps {
     title?: string;
 }
 
-const MOCK_DATA: SpendingCategory[] = [
-    { name: 'Food & Drinks', value: 12500, color: '#f97316' },
-    { name: 'Shopping', value: 18000, color: '#ec4899' },
-    { name: 'Transport', value: 5500, color: '#3b82f6' },
-    { name: 'Bills', value: 8000, color: '#eab308' },
-    { name: 'Entertainment', value: 4500, color: '#a855f7' },
-    { name: 'Subscriptions', value: 2500, color: '#ef4444' },
-    { name: 'Investments', value: 25000, color: '#22c55e' },
-];
-
 export function SpendingDonut({ data, title = 'Spending Breakdown' }: SpendingDonutProps) {
-    const chartData = data || MOCK_DATA;
+    const chartData = data || [];
     const total = useMemo(() => chartData.reduce((sum, item) => sum + item.value, 0), [chartData]);
 
     const formatCurrency = (value: number) => {
@@ -41,7 +31,7 @@ export function SpendingDonut({ data, title = 'Spending Breakdown' }: SpendingDo
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const percentage = ((data.value / total) * 100).toFixed(1);
+            const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : '0.0';
             return (
                 <div className="rounded-lg border border-border bg-white px-3 py-2 shadow-lg">
                     <p className="text-sm font-medium text-foreground">{data.name}</p>
@@ -54,6 +44,28 @@ export function SpendingDonut({ data, title = 'Spending Breakdown' }: SpendingDo
         }
         return null;
     };
+
+    if (total === 0) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+            >
+                <Card className="border-border">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-medium text-foreground">{title}</CardTitle>
+                        <p className="text-sm text-muted-foreground">This month</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                            <p>No spending data available</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
+        );
+    }
 
     return (
         <motion.div

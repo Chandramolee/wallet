@@ -179,16 +179,18 @@ export default function DashboardPage() {
                             </div>
                             <nav className="hidden md:flex items-center gap-1">
                                 {NAV_ITEMS.map((item) => (
-                                    <Link key={item.href} href={item.href}>
-                                        <Button
-                                            variant={item.active ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                        >
+                                    <Button
+                                        key={item.href}
+                                        variant={item.active ? 'secondary' : 'ghost'}
+                                        size="sm"
+                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                        asChild
+                                    >
+                                        <Link href={item.href}>
                                             <item.icon className="h-4 w-4" />
                                             {item.label}
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 ))}
                             </nav>
                         </div>
@@ -208,12 +210,12 @@ export default function DashboardPage() {
                         <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                             Get started by uploading your bank statement. We&apos;ll analyze your transactions and provide personalized insights.
                         </p>
-                        <Link href="/import">
-                            <Button size="lg" className="gap-2">
+                        <Button size="lg" className="gap-2" asChild>
+                            <Link href="/import">
                                 <Upload className="h-5 w-5" />
                                 Import Bank Statement
-                            </Button>
-                        </Link>
+                            </Link>
+                        </Button>
                     </div>
                 </main>
             </div>
@@ -236,16 +238,18 @@ export default function DashboardPage() {
                         {/* Navigation */}
                         <nav className="hidden md:flex items-center gap-1">
                             {NAV_ITEMS.map((item) => (
-                                <Link key={item.href} href={item.href}>
-                                    <Button
-                                        variant={item.active ? 'secondary' : 'ghost'}
-                                        size="sm"
-                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                    >
+                                <Button
+                                    key={item.href}
+                                    variant={item.active ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                    asChild
+                                >
+                                    <Link href={item.href}>
                                         <item.icon className="h-4 w-4" />
                                         {item.label}
-                                    </Button>
-                                </Link>
+                                    </Link>
+                                </Button>
                             ))}
                         </nav>
                     </div>
@@ -343,11 +347,11 @@ export default function DashboardPage() {
                                         Get a personalized Month in Review to see where your money went.
                                     </p>
                                 </div>
-                                <Link href="/insights">
-                                    <Button variant="ghost" size="sm" className="w-full text-blue-600 hover:text-blue-700">
+                                <Button variant="ghost" size="sm" className="w-full text-blue-600 hover:text-blue-700" asChild>
+                                    <Link href="/insights">
                                         View all insights <ArrowRight className="ml-1 h-4 w-4" />
-                                    </Button>
-                                </Link>
+                                    </Link>
+                                </Button>
                             </CardContent>
                         </Card>
                     </div>
@@ -366,11 +370,11 @@ export default function DashboardPage() {
                                     <CardTitle className="text-base font-medium">Recent Transactions</CardTitle>
                                     <p className="text-xs text-muted-foreground">Your latest activity</p>
                                 </div>
-                                <Link href="/transactions">
-                                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 text-xs">
+                                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 text-xs" asChild>
+                                    <Link href="/transactions">
                                         View all
-                                    </Button>
-                                </Link>
+                                    </Link>
+                                </Button>
                             </CardHeader>
                             <CardContent>
                                 {data.isLoading ? (
@@ -390,12 +394,12 @@ export default function DashboardPage() {
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-base font-medium">Linked Accounts</CardTitle>
-                            <Link href="/import">
-                                <Button variant="outline" size="sm" className="gap-1">
+                            <Button variant="outline" size="sm" className="gap-1" asChild>
+                                <Link href="/import">
                                     <Plus className="h-4 w-4" />
                                     Add Account
-                                </Button>
-                            </Link>
+                                </Link>
+                            </Button>
                         </CardHeader>
                         <CardContent>
                             {data.isLoading ? (

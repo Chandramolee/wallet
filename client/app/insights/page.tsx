@@ -156,16 +156,18 @@ export default function InsightsPage() {
                             </Link>
                             <nav className="hidden md:flex items-center gap-1">
                                 {NAV_ITEMS.map((item) => (
-                                    <Link key={item.href} href={item.href}>
-                                        <Button
-                                            variant={item.active ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                        >
+                                    <Button
+                                        key={item.href}
+                                        variant={item.active ? 'secondary' : 'ghost'}
+                                        size="sm"
+                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                        asChild
+                                    >
+                                        <Link href={item.href}>
                                             <item.icon className="h-4 w-4" />
                                             {item.label}
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 ))}
                             </nav>
                         </div>
@@ -180,12 +182,12 @@ export default function InsightsPage() {
                         <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                             Import your bank statement to get AI-powered insights about your spending.
                         </p>
-                        <Link href="/import">
-                            <Button size="lg" className="gap-2">
+                        <Button size="lg" className="gap-2" asChild>
+                            <Link href="/import">
                                 <Upload className="h-5 w-5" />
                                 Import Bank Statement
-                            </Button>
-                        </Link>
+                            </Link>
+                        </Button>
                     </div>
                 </main>
             </div>
@@ -223,16 +225,18 @@ export default function InsightsPage() {
 
                         <nav className="hidden md:flex items-center gap-1">
                             {NAV_ITEMS.map((item) => (
-                                <Link key={item.href} href={item.href}>
-                                    <Button
-                                        variant={item.active ? 'secondary' : 'ghost'}
-                                        size="sm"
-                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                    >
+                                <Button
+                                    key={item.href}
+                                    variant={item.active ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
+                                    asChild
+                                >
+                                    <Link href={item.href}>
                                         <item.icon className="h-4 w-4" />
                                         {item.label}
-                                    </Button>
-                                </Link>
+                                    </Link>
+                                </Button>
                             ))}
                         </nav>
                     </div>

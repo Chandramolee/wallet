@@ -35,11 +35,11 @@ export default function LandingPage() {
             <a href="#security" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Security</a>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground" asChild>
+              <Link href="/dashboard">
                 Dashboard
-              </Button>
-            </Link>
+              </Link>
+            </Button>
 
             <SignedOut>
               <SignInButton mode="modal">
@@ -103,18 +103,18 @@ export default function LandingPage() {
               transition={{ delay: 0.3 }}
               className="mt-10 flex flex-col sm:flex-row items-center gap-4"
             >
-              <Link href="/link">
-                <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90">
+              <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90" asChild>
+                <Link href="/link">
                   <Smartphone className="mr-2 h-5 w-5" />
                   Connect your Bank
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button size="lg" variant="outline" className="h-12 px-8 text-base border-border">
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="h-12 px-8 text-base border-border" asChild>
+                <Link href="/dashboard">
                   View Demo
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </motion.div>
 
             {/* Trust badges */}
@@ -275,12 +275,12 @@ export default function LandingPage() {
             <p className="mt-4 text-lg text-blue-100">
               Join thousands of users who have already connected their bank accounts.
             </p>
-            <Link href="/link">
-              <Button size="lg" className="mt-8 bg-white text-primary hover:bg-white/90 h-12 px-8">
+            <Button size="lg" className="mt-8 bg-white text-primary hover:bg-white/90 h-12 px-8" asChild>
+              <Link href="/link">
                 Get Started — It&apos;s Free
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
