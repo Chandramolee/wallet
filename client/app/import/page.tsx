@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Check, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { Navbar } from '@/components/Navbar';
+
 export default function ImportPage() {
     const [activeTab, setActiveTab] = useState('pdf');
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -25,7 +27,6 @@ export default function ImportPage() {
 
     const handleUploadSuccess = (data: any[]) => {
         setTransactions(prev => [...data, ...prev]);
-        // TODO: Trigger categorization pipeline for these new transactions
     };
 
     const handleManualSubmit = async (e: React.FormEvent) => {
@@ -33,14 +34,15 @@ export default function ImportPage() {
         setIsSubmitting(true);
 
         try {
-            const res = await fetch('/api/transactions/create', {
+            const res = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     date,
                     amount: parseFloat(amount),
-                    narration,
-                    type,
+                    title: narration,
+                    category: 'OTHER',
+                    type: type === 'DEBIT' ? 'EXPENSE' : 'INCOME',
                 }),
             });
 
@@ -55,15 +57,15 @@ export default function ImportPage() {
             setTimeout(() => setSuccess(false), 2000);
         } catch (error) {
             console.error('Manual entry error:', error);
-            // Optional: show error toast here
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-background p-6 md:p-12">
-            <div className="mx-auto max-w-4xl space-y-8">
+        <div className="min-h-screen bg-background">
+            <Navbar />
+            <main className="mx-auto max-w-4xl px-6 py-12 space-y-8">
 
                 <div className="flex items-center justify-between">
                     <div>
@@ -200,8 +202,7 @@ export default function ImportPage() {
                         </div>
                     </motion.div>
                 )}
-
-            </div>
+            </main>
         </div>
     );
 }

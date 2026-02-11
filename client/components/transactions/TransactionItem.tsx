@@ -21,7 +21,7 @@ type CategoryType = 'FOOD' | 'SHOPPING' | 'TRANSPORT' | 'BILLS' | 'ENTERTAINMENT
 interface TransactionItemProps {
     merchant: string;
     amount: number;
-    type: 'DEBIT' | 'CREDIT';
+    type: 'DEBIT' | 'CREDIT' | 'INCOME' | 'EXPENSE';
     category: CategoryType;
     transactionDate: Date;
     narration?: string;
@@ -51,7 +51,7 @@ export function TransactionItem({
 }: TransactionItemProps) {
     const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.OTHER;
     const Icon = config.icon;
-    const isCredit = type === 'CREDIT';
+    const isCredit = type === 'CREDIT' || type === 'INCOME';
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-IN', {

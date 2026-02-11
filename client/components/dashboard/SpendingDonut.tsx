@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -17,6 +18,11 @@ interface SpendingDonutProps {
 }
 
 export function SpendingDonut({ data, title = 'Spending Breakdown' }: SpendingDonutProps) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const chartData = data || [];
     const total = useMemo(() => chartData.reduce((sum, item) => sum + item.value, 0), [chartData]);
 
@@ -82,26 +88,30 @@ export function SpendingDonut({ data, title = 'Spending Breakdown' }: SpendingDo
                     <div className="flex items-center gap-8">
                         {/* Chart */}
                         <div className="relative h-[200px] w-[200px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={chartData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={55}
-                                        outerRadius={85}
-                                        paddingAngle={2}
-                                        dataKey="value"
-                                    >
-                                        {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip />} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            {!mounted ? (
+                                <div className="h-full w-full rounded-full border-8 border-slate-100 animate-pulse" />
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={chartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={55}
+                                            outerRadius={85}
+                                            paddingAngle={2}
+                                            dataKey="value"
+                                        >
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
                             {/* Center label */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                 <span className="text-xs text-muted-foreground">Total</span>
                                 <span className="text-lg font-bold text-foreground tabular-nums">{formatCurrency(total)}</span>
                             </div>

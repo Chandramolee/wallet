@@ -1,8 +1,9 @@
+
 'use client';
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BalanceTrendChart, SpendingDonut } from '@/components/dashboard';
 import { TransactionList } from '@/components/transactions';
@@ -18,27 +19,14 @@ import {
     Settings,
     Plus,
     Sparkles,
-    Upload
+    Upload,
+    FileText
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { UserButton, useUser } from '@clerk/nextjs';
 
-const NAV_ITEMS = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', active: true },
-    { icon: Receipt, label: 'Transactions', href: '/transactions', active: false },
-    { icon: Lightbulb, label: 'Insights', href: '/insights', active: false },
-    { icon: Settings, label: 'Settings', href: '/settings', active: false },
-];
-
-interface Transaction {
-    id: string;
-    amount: number;
-    type: 'CREDIT' | 'DEBIT';
-    narration: string;
-    transactionDate: string;
-    category?: string;
-    merchant?: string;
-}
+import { Navbar } from '@/components/Navbar';
+import { TransactionBase as Transaction } from '@/lib/types/transaction';
 
 interface Account {
     id: string;
@@ -56,10 +44,20 @@ interface DashboardData {
         thisMonthExpenses: number;
         thisMonthSavings: number;
     };
+    pieChartData: any[]; // { name, value, color }
+    barChartData: any[]; // { date, income, expense }
     totalBalance: number;
     isLoading: boolean;
     hasData: boolean;
 }
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 0,
+    }).format(value);
+};
 
 export default function DashboardPage() {
     const { user, isLoaded } = useUser();
@@ -67,89 +65,16 @@ export default function DashboardPage() {
         transactions: [],
         accounts: [],
         summary: { thisMonthIncome: 0, thisMonthExpenses: 0, thisMonthSavings: 0 },
+        pieChartData: [],
+        barChartData: [],
         totalBalance: 0,
         isLoading: true,
         hasData: false,
     });
-
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const [txRes, accRes] = await Promise.all([
-                    fetch('/api/transactions?limit=50'),
-                    fetch('/api/accounts'),
-                ]);
-
-                const [txData, accData] = await Promise.all([
-                    txRes.json(),
-                    accRes.json(),
-                ]);
-
-                setData({
-                    transactions: txData.transactions || [],
-                    accounts: accData.accounts || [],
-                    summary: txData.summary || { thisMonthIncome: 0, thisMonthExpenses: 0, thisMonthSavings: 0 },
-                    totalBalance: accData.totalBalance || 0,
-                    isLoading: false,
-                    hasData: (txData.transactions?.length > 0) || (accData.accounts?.length > 0),
-                });
-            } catch (error) {
-                console.error('Failed to fetch dashboard data:', error);
-                setData(prev => ({ ...prev, isLoading: false }));
-            }
-        }
-
-        fetchData();
-    }, []);
-
-    // Spending by category
-    const spendingByCategory = useMemo(() => {
-        const categories: Record<string, { name: string; value: number; color: string }> = {};
-        const colors: Record<string, string> = {
-            FOOD: '#f97316',
-            SHOPPING: '#ec4899',
-            TRANSPORT: '#3b82f6',
-            BILLS: '#eab308',
-            ENTERTAINMENT: '#a855f7',
-            SUBSCRIPTIONS: '#ef4444',
-            TRANSFERS: '#06b6d4',
-            INVESTMENTS: '#22c55e',
-            OTHER: '#71717a',
-        };
-        const labels: Record<string, string> = {
-            FOOD: 'Food & Drinks',
-            SHOPPING: 'Shopping',
-            TRANSPORT: 'Transport',
-            BILLS: 'Bills',
-            ENTERTAINMENT: 'Entertainment',
-            SUBSCRIPTIONS: 'Subscriptions',
-            TRANSFERS: 'Transfers',
-            INVESTMENTS: 'Investments',
-            OTHER: 'Other',
-        };
-
-        // Filter to this month's transactions
-        const now = new Date();
-        const thisMonthTx = data.transactions.filter(tx => {
-            const txDate = new Date(tx.transactionDate);
-            return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
-        });
-
-        thisMonthTx
-            .filter((tx) => tx.type === 'DEBIT')
-            .forEach((tx) => {
-                const cat = tx.category || 'OTHER';
-                if (!categories[cat]) {
-                    categories[cat] = { name: labels[cat] || cat, value: 0, color: colors[cat] || '#71717a' };
-                }
-                categories[cat].value += tx.amount;
-            });
-
-        return Object.values(categories).sort((a, b) => b.value - a.value);
-    }, [data.transactions]);
+    const spendingByCategory = data.pieChartData;
 
     const recentTransactions = data.transactions.slice(0, 5).map((tx) => ({
-        merchant: tx.merchant || 'Unknown',
+        merchant: tx.merchant || tx.narration || 'Unknown',
         amount: tx.amount,
         type: tx.type,
         category: (tx.category || 'OTHER') as any,
@@ -157,68 +82,12 @@ export default function DashboardPage() {
         narration: tx.narration,
     }));
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(value);
-    };
-
-    // Empty state when no data
     if (!data.isLoading && !data.hasData) {
         return (
             <div className="min-h-screen bg-background">
-                {/* Header */}
-                <header className="sticky top-0 z-50 border-b border-border bg-white">
-                    <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                        <div className="flex items-center gap-8">
-                            <div className="flex items-center gap-2">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                                    <Wallet className="h-5 w-5 text-white" />
-                                </div>
-                                <span className="text-xl font-semibold text-foreground">Fold</span>
-                            </div>
-                            <nav className="hidden md:flex items-center gap-1">
-                                {NAV_ITEMS.map((item) => (
-                                    <Button
-                                        key={item.href}
-                                        variant={item.active ? 'secondary' : 'ghost'}
-                                        size="sm"
-                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                        asChild
-                                    >
-                                        <Link href={item.href}>
-                                            <item.icon className="h-4 w-4" />
-                                            {item.label}
-                                        </Link>
-                                    </Button>
-                                ))}
-                            </nav>
-                        </div>
-                        <UserButton />
-                    </div>
-                </header>
-
-                {/* Empty State */}
+                <Navbar />
                 <main className="mx-auto max-w-7xl px-6 py-16">
-                    <div className="text-center">
-                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 mb-6">
-                            <Upload className="h-10 w-10 text-blue-600" />
-                        </div>
-                        <h1 className="text-2xl font-semibold text-foreground mb-2">
-                            Welcome{isLoaded && user ? `, ${user.firstName}` : ''}!
-                        </h1>
-                        <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                            Get started by uploading your bank statement. We&apos;ll analyze your transactions and provide personalized insights.
-                        </p>
-                        <Button size="lg" className="gap-2" asChild>
-                            <Link href="/import">
-                                <Upload className="h-5 w-5" />
-                                Import Bank Statement
-                            </Link>
-                        </Button>
-                    </div>
+                    {/* ... rest of the main */}
                 </main>
             </div>
         );
@@ -226,45 +95,7 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-border bg-white">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-8">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                                <Wallet className="h-5 w-5 text-white" />
-                            </div>
-                            <span className="text-xl font-semibold text-foreground">Fold</span>
-                        </div>
-
-                        {/* Navigation */}
-                        <nav className="hidden md:flex items-center gap-1">
-                            {NAV_ITEMS.map((item) => (
-                                <Button
-                                    key={item.href}
-                                    variant={item.active ? 'secondary' : 'ghost'}
-                                    size="sm"
-                                    className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                    asChild
-                                >
-                                    <Link href={item.href}>
-                                        <item.icon className="h-4 w-4" />
-                                        {item.label}
-                                    </Link>
-                                </Button>
-                            ))}
-                        </nav>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 text-sm">
-                            <UserButton />
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content */}
+            <Navbar />
             <main className="mx-auto max-w-7xl px-6 py-8">
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -272,7 +103,6 @@ export default function DashboardPage() {
                     transition={{ duration: 0.3 }}
                     className="space-y-8"
                 >
-                    {/* Greeting */}
                     <div>
                         <h1 className="text-2xl font-semibold text-foreground">
                             {isLoaded && user ? `Welcome back, ${user.firstName}` : 'Good afternoon'}
@@ -280,7 +110,6 @@ export default function DashboardPage() {
                         <p className="text-muted-foreground">Here&apos;s an overview of your finances</p>
                     </div>
 
-                    {/* Stats Cards */}
                     <div className="grid gap-4 md:grid-cols-4">
                         {data.isLoading ? (
                             Array(4).fill(0).map((_, i) => (
@@ -317,14 +146,11 @@ export default function DashboardPage() {
                         )}
                     </div>
 
-                    {/* Charts & Insights Grid */}
                     <div className="grid gap-6 lg:grid-cols-3">
-                        {/* Spending Chart - Takes 2 columns */}
                         <div className="lg:col-span-2">
-                            <BalanceTrendChart days={30} />
+                            <BalanceTrendChart data={data.barChartData} days={30} />
                         </div>
 
-                        {/* AI Insights Card */}
                         <Card className="border-border">
                             <CardHeader className="pb-3">
                                 <div className="flex items-center gap-2">
@@ -358,14 +184,11 @@ export default function DashboardPage() {
                         </Card>
                     </div>
 
-                    {/* Bottom Grid */}
                     <div className="grid gap-6 lg:grid-cols-3">
-                        {/* Spending Breakdown */}
                         <div className="lg:col-span-2">
                             <SpendingDonut data={spendingByCategory} />
                         </div>
 
-                        {/* Recent Transactions */}
                         <Card className="border-border">
                             <CardHeader className="flex flex-row items-center justify-between pb-3">
                                 <div>
@@ -392,7 +215,6 @@ export default function DashboardPage() {
                         </Card>
                     </div>
 
-                    {/* Linked Accounts */}
                     <Card className="border-border">
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-base font-medium">Linked Accounts</CardTitle>

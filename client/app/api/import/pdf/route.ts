@@ -1,6 +1,6 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
+import { ai } from '@/lib/ai/ai-provider';
 import { z } from 'zod';
 import { PDFParse } from 'pdf-parse';
 import { auth } from '@clerk/nextjs/server';
@@ -25,17 +25,9 @@ const TransactionSchema = z.object({
     }))
 });
 
-// Schema for AI categorization
-const CategorySchema = z.object({
-    category: z.enum(['FOOD', 'SHOPPING', 'TRANSPORT', 'BILLS', 'ENTERTAINMENT', 'SUBSCRIPTIONS', 'TRANSFERS', 'INCOME', 'INVESTMENTS', 'OTHER']),
-    merchant: z.string().optional().describe('Merchant name if identifiable'),
-    sentiment: z.enum(['ESSENTIAL', 'DISCRETIONARY', 'SAVINGS']).optional(),
-});
-
 export async function POST(req: NextRequest) {
     try {
         console.log('Starting PDF import...');
-        // 1. Authenticate user
         const { userId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -49,48 +41,33 @@ export async function POST(req: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-
-        // 2. Extract Text from PDF
         const parser = new PDFParse({ data: buffer });
         const textResult = await parser.getText();
         const rawText = textResult.text;
 
-        console.log(`PDF Extracted Text Length: ${rawText.length}`);
-        if (rawText.length < 100) {
-            console.warn('PDF extraction warning: Text too short or empty');
-            console.log('Preview:', rawText);
-        }
-
-        // 3. Use Gemini Flash to parse transactions
-        const startTime = Date.now();
         console.log('Gemini extraction started...');
+        const startTime = Date.now();
 
-        // 3. Use Gemini Flash to parse AND categorize transactions in one go
-        const { object } = await generateObject({
-            model: google('gemini-2.5-pro'),
+        const { object } = await ai.generateObject<any>({
             schema: TransactionSchema,
             prompt: `Extract and categorize financial transactions from this bank statement.
-Also try to identify the bank name and last 4 digits of account number if visible.
-For each transaction:
-1. Identify the date, description (narration), amount, and type (CREDIT/DEBIT).
-2. Categorize it into one of: FOOD, SHOPPING, TRANSPORT, BILLS, ENTERTAINMENT, SUBSCRIPTIONS, TRANSFERS, INCOME, INVESTMENTS, OTHER.
-3. Identify the merchant name if possible.
-4. Determine sentiment: ESSENTIAL (needs), DISCRETIONARY (wants), or SAVINGS.
-
-for amounts, always use positive numbers - use the type field to indicate debit/credit.
-
-BANK STATEMENT TEXT:
-${rawText.substring(0, 30000)}`,
+            Also try to identify the bank name and last 4 digits of account number if visible.
+            For each transaction:
+            1. Identify the date, description (narration), amount, and type (CREDIT/DEBIT).
+            2. Categorize it into one of: FOOD, SHOPPING, TRANSPORT, BILLS, ENTERTAINMENT, SUBSCRIPTIONS, TRANSFERS, INCOME, INVESTMENTS, OTHER.
+            3. Identify the merchant name if possible.
+            4. Determine sentiment: ESSENTIAL (needs), DISCRETIONARY (wants), or SAVINGS.
+            
+            for amounts, always use positive numbers - use the type field to indicate debit/credit.
+            
+            BANK STATEMENT TEXT:
+            ${rawText.substring(0, 30000)}`,
         });
 
         console.log(`Gemini extraction completed in ${(Date.now() - startTime) / 1000}s`);
 
-        console.log('Gemini Parsed Object:', JSON.stringify(object, null, 2));
-
-        // 4. Connect to database
         await connectDB();
 
-        // 5. Create or get user account
         let account = await UserAccount.findOne({ userId }).sort({ createdAt: -1 });
         if (!account) {
             account = await UserAccount.create({
@@ -101,17 +78,14 @@ ${rawText.substring(0, 30000)}`,
                 accountType: 'SAVINGS',
                 balance: 0,
                 currency: 'INR',
-                linkedVia: 'MOCK', // PDF import is manual
+                linkedVia: 'MOCK',
                 linkedAt: new Date(),
                 isActive: true,
             });
         }
 
-        // 6. Save transactions to DB and categorize
         const savedTransactions = [];
         for (const tx of object.transactions) {
-            // No separate AI call needed anymore!
-
             const savedTx = await Transaction.create({
                 accountId: account._id,
                 userId,
@@ -135,7 +109,6 @@ ${rawText.substring(0, 30000)}`,
             });
         }
 
-        // 7. Update account balance based on transactions
         const totalCredits = savedTransactions
             .filter(tx => tx.type === 'CREDIT')
             .reduce((sum, tx) => sum + tx.amount, 0);

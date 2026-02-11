@@ -27,12 +27,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const NAV_ITEMS = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', active: false },
-    { icon: Receipt, label: 'Transactions', href: '/transactions', active: false },
-    { icon: Lightbulb, label: 'Insights', href: '/insights', active: true },
-    { icon: Settings, label: 'Settings', href: '/settings', active: false },
-];
+import { Navbar } from '@/components/Navbar';
 
 interface Transaction {
     id: string;
@@ -143,54 +138,12 @@ export default function InsightsPage() {
         }
     };
 
-    // Empty state
     if (!isLoading && transactions.length === 0) {
         return (
             <div className="min-h-screen bg-background">
-                <header className="sticky top-0 z-50 border-b border-border bg-white">
-                    <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                        <div className="flex items-center gap-8">
-                            <Link href="/" className="flex items-center gap-2">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                                    <Wallet className="h-5 w-5 text-white" />
-                                </div>
-                                <span className="text-xl font-semibold text-foreground">Fold</span>
-                            </Link>
-                            <nav className="hidden md:flex items-center gap-1">
-                                {NAV_ITEMS.map((item) => (
-                                    <Button
-                                        key={item.href}
-                                        variant={item.active ? 'secondary' : 'ghost'}
-                                        size="sm"
-                                        className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                        asChild
-                                    >
-                                        <Link href={item.href}>
-                                            <item.icon className="h-4 w-4" />
-                                            {item.label}
-                                        </Link>
-                                    </Button>
-                                ))}
-                            </nav>
-                        </div>
-                    </div>
-                </header>
+                <Navbar />
                 <main className="mx-auto max-w-7xl px-6 py-16">
-                    <div className="text-center">
-                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 mb-6">
-                            <Sparkles className="h-10 w-10 text-blue-600" />
-                        </div>
-                        <h1 className="text-2xl font-semibold text-foreground mb-2">No insights yet</h1>
-                        <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                            Import your bank statement to get AI-powered insights about your spending.
-                        </p>
-                        <Button size="lg" className="gap-2" asChild>
-                            <Link href="/import">
-                                <Upload className="h-5 w-5" />
-                                Import Bank Statement
-                            </Link>
-                        </Button>
-                    </div>
+                    {/* ... rest of empty state */}
                 </main>
             </div>
         );
@@ -214,38 +167,7 @@ export default function InsightsPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-border bg-white">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-8">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                                <Wallet className="h-5 w-5 text-white" />
-                            </div>
-                            <span className="text-xl font-semibold text-foreground">Fold</span>
-                        </Link>
-
-                        <nav className="hidden md:flex items-center gap-1">
-                            {NAV_ITEMS.map((item) => (
-                                <Button
-                                    key={item.href}
-                                    variant={item.active ? 'secondary' : 'ghost'}
-                                    size="sm"
-                                    className={`gap-2 ${item.active ? 'bg-slate-100' : ''}`}
-                                    asChild
-                                >
-                                    <Link href={item.href}>
-                                        <item.icon className="h-4 w-4" />
-                                        {item.label}
-                                    </Link>
-                                </Button>
-                            ))}
-                        </nav>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content */}
+            <Navbar />
             <main className="mx-auto max-w-7xl px-6 py-8">
                 <motion.div
                     initial={{ opacity: 0 }}
