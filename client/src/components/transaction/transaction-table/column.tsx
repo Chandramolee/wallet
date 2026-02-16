@@ -1,36 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   ArrowUpDown,
   CircleDot,
-  Copy,
-  Loader,
   LucideIcon,
-  MoreHorizontal,
-  Pencil,
   RefreshCw,
-  //StopCircleIcon,
-  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/format-currency";
-import useEditTransactionDrawer from "@/hooks/use-edit-transaction-drawer";
 import { TransactionType } from "@/features/transaction/transationType";
 import { _TRANSACTION_FREQUENCY, _TRANSACTION_TYPE } from "@/constant";
-import {
-  useDeleteTransactionMutation,
-  useDuplicateTransactionMutation,
-} from "@/features/transaction/transactionAPI";
-import { toast } from "sonner";
+
+import { ActionsCell } from "./actions-cell";
 
 type FrequencyInfo = {
   label: string;
@@ -111,11 +93,10 @@ export const transactionColumns: ColumnDef<TransactionType>[] = [
     cell: ({ row }) => (
       <div className="capitalize">
         <span
-          className={`px-2 py-1 rounded-full text-xs ${
-            row.getValue("type") === _TRANSACTION_TYPE.INCOME
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
+          className={`px-2 py-1 rounded-full text-xs ${row.getValue("type") === _TRANSACTION_TYPE.INCOME
+            ? "bg-green-100 text-green-800"
+            : "bg-red-100 text-red-800"
+            }`}
         >
           {row.getValue("type")}
         </span>
@@ -134,11 +115,10 @@ export const transactionColumns: ColumnDef<TransactionType>[] = [
 
       return (
         <div
-          className={`text-right font-medium ${
-            type === _TRANSACTION_TYPE.INCOME
-              ? "text-green-600"
-              : "text-destructive"
-          }`}
+          className={`text-right font-medium ${type === _TRANSACTION_TYPE.INCOME
+            ? "text-green-600"
+            : "text-destructive"
+            }`}
         >
           {type === _TRANSACTION_TYPE.EXPENSE ? "-" : "+"}
           {formatCurrency(amount)}
@@ -190,21 +170,21 @@ export const transactionColumns: ColumnDef<TransactionType>[] = [
 
       const frequencyMap: FrequencyMapType = isRecurring
         ? {
-            [_TRANSACTION_FREQUENCY.DAILY]: { label: "Daily", icon: RefreshCw },
-            [_TRANSACTION_FREQUENCY.WEEKLY]: {
-              label: "Weekly",
-              icon: RefreshCw,
-            },
-            [_TRANSACTION_FREQUENCY.MONTHLY]: {
-              label: "Monthly",
-              icon: RefreshCw,
-            },
-            [_TRANSACTION_FREQUENCY.YEARLY]: {
-              label: "Yearly",
-              icon: RefreshCw,
-            },
-            DEFAULT: { label: "One-time", icon: CircleDot }, // Fallback
-          }
+          [_TRANSACTION_FREQUENCY.DAILY]: { label: "Daily", icon: RefreshCw },
+          [_TRANSACTION_FREQUENCY.WEEKLY]: {
+            label: "Weekly",
+            icon: RefreshCw,
+          },
+          [_TRANSACTION_FREQUENCY.MONTHLY]: {
+            label: "Monthly",
+            icon: RefreshCw,
+          },
+          [_TRANSACTION_FREQUENCY.YEARLY]: {
+            label: "Yearly",
+            icon: RefreshCw,
+          },
+          DEFAULT: { label: "One-time", icon: CircleDot }, // Fallback
+        }
         : { DEFAULT: { label: "One-time", icon: CircleDot } };
 
       const frequencyKey = isRecurring ? (frequency as string) : "DEFAULT";
@@ -234,98 +214,3 @@ export const transactionColumns: ColumnDef<TransactionType>[] = [
     cell: ({ row }) => <ActionsCell row={row} />,
   },
 ];
-
-// eslint-disable-next-line react-refresh/only-export-components
-const ActionsCell = ({ row }: { row: any }) => {
-  //const isRecurring = row.original.isRecurring;
-  const transactionId = row.original.id;
-  const { onOpenDrawer } = useEditTransactionDrawer();
-
-  const [duplicateTransaction, { isLoading: isDuplicating }] =
-    useDuplicateTransactionMutation();
-
-  const [deleteTransaction, { isLoading: isDeleting }] =
-    useDeleteTransactionMutation();
-
-  const handleDuplicate = (e: Event) => {
-    e.preventDefault();
-    if (isDuplicating) return;
-    duplicateTransaction(transactionId)
-      .unwrap()
-      .then(() => {
-        toast.success("Transaction duplicated successfully");
-      })
-      .catch((error) => {
-        toast.error(error.data?.message || "Failed to duplicate transaction");
-      });
-  };
-
-  const handleDelete = (e: Event) => {
-    e.preventDefault();
-    if (isDeleting) return;
-    deleteTransaction(transactionId)
-      .unwrap()
-      .then(() => {
-        toast.success("Transaction deleted successfully");
-      })
-      .catch((error) => {
-        toast.error(error.data?.message || "Failed to delete transaction");
-      });
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-44"
-        align="end"
-        onCloseAutoFocus={(e) => {
-          if (isDeleting || isDuplicating) {
-            e.preventDefault();
-          }
-        }}
-      >
-        <DropdownMenuItem onClick={() => onOpenDrawer(transactionId)}>
-          <Pencil className="mr-1 h-4 w-4" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="relative"
-          disabled={isDuplicating}
-          onSelect={handleDuplicate}
-        >
-          <Copy className="mr-1 h-4 w-4" />
-          Duplicate
-          {isDuplicating && (
-            <Loader className="ml-1 h-4 w-4 absolute right-2 animate-spin" />
-          )}
-        </DropdownMenuItem>
-
-        {/* {isRecurring && (
-          <>
-            <DropdownMenuItem>
-              <StopCircleIcon className="mr-1 h-4 w-4" />
-              Stop Recurring
-            </DropdownMenuItem>
-          </>
-        )} */}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="relative !text-destructive"
-          disabled={isDeleting}
-          onSelect={handleDelete}
-        >
-          <Trash2 className="mr-1 h-4 w-4 !text-destructive" />
-          Delete
-          {isDeleting && (
-            <Loader className="ml-1 h-4 w-4 absolute right-2 animate-spin" />
-          )}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};

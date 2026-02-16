@@ -4,7 +4,7 @@
     "description": "Root for Finora wallet application",
     "private": true,
     "scripts": {
-        "dev": "./ensure-port.sh && concurrently \"npm run dev --prefix client\" \"npm run dev --prefix backend\"",
+        "dev": "bash ./ensure-port.sh && concurrently \"npm run dev --prefix client\" \"npm run dev --prefix backend\"",
         "install-client": "npm install --prefix client --legacy-peer-deps",
         "install-backend": "npm install --prefix backend",
         "install-all": "npm install && npm run install-client && npm run install-backend",
