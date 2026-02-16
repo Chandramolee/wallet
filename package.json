@@ -1,0 +1,18 @@
+{
+    "name": "finora-root",
+    "version": "1.0.0",
+    "description": "Root for Finora wallet application",
+    "private": true,
+    "scripts": {
+        "dev": "./ensure-port.sh && concurrently \"npm run dev --prefix client\" \"npm run dev --prefix backend\"",
+        "install-client": "npm install --prefix client --legacy-peer-deps",
+        "install-backend": "npm install --prefix backend",
+        "install-all": "npm install && npm run install-client && npm run install-backend",
+        "build-client": "npm run build --prefix client",
+        "build-backend": "npm run build --prefix backend",
+        "build-all": "npm run build-client && npm run build-backend"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    }
+}
