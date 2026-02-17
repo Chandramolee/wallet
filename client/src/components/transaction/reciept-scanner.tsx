@@ -39,8 +39,8 @@ const ReceiptScanner = ({
       toast.error("Please select a file");
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Please upload an image or PDF file");
       return;
     }
     const formData = new FormData();
@@ -48,6 +48,7 @@ const ReceiptScanner = ({
 
     startProgress(10);
     onLoadingChange(true);
+
     // Simulate file upload and processing
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -84,20 +85,25 @@ const ReceiptScanner = ({
     reader.readAsDataURL(file);
   };
 
+  const isPdfPreview = receipt?.startsWith("data:application/pdf");
+
   return (
     <div className="space-y-3">
       <Label className="text-sm font-medium">AI Scan Receipt</Label>
       <div className="flex items-start gap-3 border-b pb-4">
         {/* Receipt Preview */}
         <div
-          className={`h-12 w-12 rounded-md border bg-cover bg-center ${
-            !receipt ? "bg-muted" : ""
-          }`}
-          style={receipt ? { backgroundImage: `url(${receipt})` } : {}}
+          className={`h-12 w-12 rounded-md border bg-cover bg-center ${!receipt ? "bg-muted" : "bg-muted"
+            } flex items-center justify-center overflow-hidden`}
+          style={receipt && !isPdfPreview ? { backgroundImage: `url(${receipt})` } : {}}
         >
-          {!receipt && (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <ScanText color="currentColor" className="h-5 w-5 !stroke-1.5" />
+          {(!receipt || isPdfPreview) && (
+            <div className="flex h-full items-center justify-center text-muted-foreground p-1">
+              {isPdfPreview ? (
+                <span className="text-[10px] font-bold text-center leading-tight">PDF</span>
+              ) : (
+                <ScanText color="currentColor" className="h-5 w-5 !stroke-1.5" />
+              )}
             </div>
           )}
         </div>
@@ -108,7 +114,7 @@ const ReceiptScanner = ({
             <>
               <Input
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 onChange={handleReceiptUpload}
                 className="max-w-[250px] px-1 h-9 cursor-pointer text-sm file:mr-2 
             file:rounded file:border-0 file:bg-primary file:px-3 file:py-px
@@ -117,7 +123,7 @@ const ReceiptScanner = ({
                 disabled={loadingChange}
               />
               <p className="mt-2 text-[11px] px-2 text-muted-foreground">
-                JPG, PNG up to 5MB
+                JPG, PNG, PDF up to 5MB
               </p>
             </>
           ) : (

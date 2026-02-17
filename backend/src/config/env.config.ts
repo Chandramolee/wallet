@@ -23,6 +23,7 @@ const envConfig = () => ({
   RESEND_MAILER_SENDER: getEnv("RESEND_MAILER_SENDER", ""),
 
   FRONTEND_ORIGIN: getEnv("FRONTEND_ORIGIN", "localhost"),
+  OCR_SPACE_API_KEY: getEnv("OCR_SPACE_API_KEY", "helloworld"), // default is "helloworld" for testing if user doesn't provide it immediately
 });
 
 export const Env = envConfig();

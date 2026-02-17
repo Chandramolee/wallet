@@ -1,4 +1,3 @@
-import axios from "axios";
 import TransactionModel, {
   TransactionTypeEnum,
 } from "../models/transaction.model";
@@ -9,7 +8,8 @@ import {
   UpdateTransactionType,
 } from "../validators/transaction.validator";
 import { genAI, genAIModel } from "../config/google-ai.config";
-import { createPartFromBase64, createUserContent } from "@google/genai";
+import { createUserContent } from "@google/genai";
+import { extractTextFromImageUrl } from "./ocr.service";
 import { receiptPrompt } from "../utils/prompt";
 
 export const createTransactionService = async (
@@ -271,40 +271,62 @@ export const scanReceiptService = async (
 
     console.log(file.path);
 
-    const responseData = await axios.get(file.path, {
-      responseType: "arraybuffer",
-    });
-    const base64String = Buffer.from(responseData.data).toString("base64");
+    const parsedText = await extractTextFromImageUrl(file.path);
 
-    if (!base64String) throw new BadRequestException("Could not process file");
+    if (!parsedText) throw new BadRequestException("Could not extract text from file");
 
-    const result = await genAI.models.generateContent({
-      model: genAIModel,
-      contents: [
-        createUserContent([
-          receiptPrompt,
-          createPartFromBase64(base64String, file.mimetype),
-        ]),
-      ],
-      config: {
-        temperature: 0,
-        topP: 1,
-        responseMimeType: "application/json",
-      },
-    });
+    console.log("Extracted Text:", parsedText);
+
+    let result;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      try {
+        result = await genAI.models.generateContent({
+          model: genAIModel,
+          contents: [
+            createUserContent(receiptPrompt + "\n\nReceipt Text:\n" + parsedText),
+          ],
+          config: {
+            temperature: 0,
+            topP: 1,
+            responseMimeType: "application/json",
+          },
+        });
+        break; // Success, exit loop
+      } catch (err: any) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          console.error(`Gemini API failed after ${maxAttempts} attempts:`, err.message);
+          throw err; // Re-throw the last error
+        }
+
+        // Check for 429 specifically
+        if (err.message?.includes("429") || err.status === 429) {
+          const delay = Math.pow(2, attempts) * 1000 + Math.random() * 1000; // Exponential backoff + jitter
+          console.warn(`Gemini API rate limited (429). Retrying in ${delay.toFixed(0)}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw err; // Don't retry other errors
+        }
+      }
+    }
+
+    if (!result) throw new Error("Failed to generate content from AI service");
 
     const response = result.text;
     const cleanedText = response?.replace(/```(?:json)?\n?/g, "").trim();
 
     if (!cleanedText)
       return {
-        error: "Could not read reciept  content",
+        error: "Could not read receipt content",
       };
 
     const data = JSON.parse(cleanedText);
 
     if (!data.amount || !data.date) {
-      return { error: "Reciept missing required information" };
+      return { error: "Receipt missing required information" };
     }
 
     return {
@@ -317,7 +339,8 @@ export const scanReceiptService = async (
       type: data.type,
       receiptUrl: file.path,
     };
-  } catch (error) {
-    return { error: "Reciept scanning  service unavailable" };
+  } catch (error: any) {
+    console.error("Receipt scanning error:", error.message);
+    return { error: "Receipt scanning service unavailable" };
   }
 };

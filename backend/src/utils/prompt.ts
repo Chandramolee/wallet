@@ -1,8 +1,8 @@
 import { PaymentMethodEnum } from "../models/transaction.model";
 
 export const receiptPrompt = `
-You are a financial assistant that helps users analyze and extract transaction details from receipt image (base64 encoded)
-Analyze this receipt image (base64 encoded) and extract transaction details matching this exact JSON format:
+You are a financial assistant that helps users analyze and extract transaction details from receipt text (OCR extracted).
+Analyze this receipt text and extract transaction details matching this exact JSON format:
 {
   "title": "string",          // Merchant/store name or brief description
   "amount": number,           // Total amount (positive number)

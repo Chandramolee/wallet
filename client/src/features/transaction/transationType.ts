@@ -19,6 +19,7 @@ export interface CreateTransactionBody {
   isRecurring: boolean;
   recurringInterval?: RecurringIntervalType | null;
   paymentMethod: string;
+  receiptUrl?: string; // OCR extracted receipt URL
 }
 
 export interface GetAllTransactionParams {
